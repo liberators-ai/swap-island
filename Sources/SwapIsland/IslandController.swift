@@ -207,11 +207,20 @@ final class IslandController: NSObject {
     private func handleGlobalPress() {
         guard let geometry else { return }
         let point = NSEvent.mouseLocation
+        // The item's own action decides this click. Handling it here too races with that action,
+        // so the panel would open and close at once, or close and reopen.
+        guard !isOverStatusItem(point) else { return }
         if store.isOpen {
             if !geometry.isOverIsland(at: point, bodySize: bodySize) { transition(toOpen: false) }
         } else if geometry.triggersOpen(at: point) {
             transition(toOpen: true)
         }
+    }
+
+    /// Wider than the button because the menu bar pads each item.
+    private func isOverStatusItem(_ point: CGPoint) -> Bool {
+        guard let frame = statusItem?.button?.window?.frame else { return false }
+        return frame.insetBy(dx: -8, dy: 0).contains(point)
     }
 
     /// Debounced, so sweeping the cursor across the menu bar does not flash the panel.
