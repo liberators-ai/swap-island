@@ -19,6 +19,9 @@ final class IslandStore: ObservableObject {
     @Published private(set) var notice: Notice?
     @Published var isOpen = false
     @Published var isAdding = false
+    @Published var hoveredAccount: Int?
+    /// The notch screen shows a fullscreen Space, so the wings stay out of a film's dark edge.
+    @Published var isFullscreen = false
     /// First launch only. The accounts stay inactive until the person takes them in.
     @Published private(set) var needsOnboarding = !UserDefaults.standard.bool(forKey: IslandStore.onboardedKey)
 

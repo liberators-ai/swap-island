@@ -41,7 +41,7 @@ struct IslandView: View {
             ClosedIsland(
                 account: store.active,
                 notchSize: geometry.notchSize,
-                wing: store.isOpen ? 0 : NotchGeometry.wingWidth
+                wing: store.isOpen || store.isFullscreen ? 0 : NotchGeometry.wingWidth
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -206,6 +206,7 @@ private struct OpenPanel: View {
         case .available(let version), .ready(let version):
             Button("Update to \(version)") { updater.updateNow() }
                 .buttonStyle(.plain)
+                .clickCursor()
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(Color(level: .calm))
                 .help("Swap Island also updates by itself when this panel closes")
@@ -310,6 +311,7 @@ private struct FooterControls: View {
                     .foregroundStyle(.white.opacity(launchesAtLogin ? 0.85 : 0.5))
             }
             .buttonStyle(.plain)
+            .clickCursor()
             .help("Open Swap Island when you log in to this Mac")
 
             Button {
@@ -437,9 +439,9 @@ private struct MissingCswapView: View {
 private struct AccountRow: View {
     @ObservedObject var store: IslandStore
     let account: Account
-    @State private var isHovered = false
     @State private var confirmsRemoval = false
 
+    private var isHovered: Bool { store.hoveredAccount == account.number }
     private var isSwitching: Bool { store.switchingTo == account.number }
 
     var body: some View {
@@ -450,6 +452,7 @@ private struct AccountRow: View {
                 rowContent
             }
             .buttonStyle(.plain)
+            .clickCursor()
             .disabled(store.isBusy)
             .accessibilityLabel(accessibilityText)
 
@@ -457,8 +460,11 @@ private struct AccountRow: View {
                 .padding(.trailing, 8)
         }
         .padding(.vertical, 2)
-        .onHover { hovering in
-            isHovered = hovering
+        .onGeometryChange(for: CGRect.self, of: HoverAreas.visibleFrame) { [number = account.number] frame in
+            HoverAreas.setRow(frame, for: number)
+        }
+        .onDisappear { HoverAreas.setRow(nil, for: account.number) }
+        .onChange(of: isHovered) { _, hovering in
             if !hovering { confirmsRemoval = false }
         }
         .animation(.easeOut(duration: 0.12), value: isHovered)
@@ -655,6 +661,57 @@ struct AccountBadge: View {
 
 // MARK: - Styling
 
+/// Where the enabled buttons and the rows are, in window coordinates, for `IslandController` to
+/// compare with the mouse. `onHover` would be simpler, but it misses enters and exits in this
+/// never-frontmost panel: 7 of 39 pointer moves left the wrong cursor when it was measured.
+@MainActor
+enum HoverAreas {
+    private static var buttons: [UUID: CGRect] = [:]
+    private static var rows: [Int: CGRect] = [:]
+
+    static func setButton(_ frame: CGRect?, for id: UUID) {
+        buttons[id] = frame
+    }
+
+    static func setRow(_ frame: CGRect?, for account: Int) {
+        rows[account] = frame
+    }
+
+    static func isOverButton(_ point: CGPoint) -> Bool {
+        buttons.values.contains { $0.contains(point) }
+    }
+
+    static func account(at point: CGPoint) -> Int? {
+        rows.first { $0.value.contains(point) }?.key
+    }
+
+    /// Clipped to the account list, so a row scrolled out of view does not claim what is drawn there.
+    nonisolated static func visibleFrame(_ proxy: GeometryProxy) -> CGRect {
+        let frame = proxy.frame(in: .global)
+        guard let clip = proxy.bounds(of: .scrollView) else { return frame }
+        return CGRect(origin: .zero, size: proxy.size).intersection(clip)
+            .offsetBy(dx: frame.minX, dy: frame.minY)
+    }
+}
+
+private struct ButtonHoverArea: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var id = UUID()
+    @State private var frame: CGRect?
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self, of: HoverAreas.visibleFrame) { frame = $0 }
+            .onChange(of: isEnabled ? frame : nil) { _, target in HoverAreas.setButton(target, for: id) }
+            .onDisappear { HoverAreas.setButton(nil, for: id) }
+    }
+}
+
+private extension View {
+    /// Goes inside any `.disabled`, so a disabled button keeps the arrow.
+    func clickCursor() -> some View { modifier(ButtonHoverArea()) }
+}
+
 private struct IconButtonStyle: ButtonStyle {
     var side: CGFloat = 26
 
@@ -663,6 +720,7 @@ private struct IconButtonStyle: ButtonStyle {
             .foregroundStyle(.white.opacity(configuration.isPressed ? 0.4 : 0.7))
             .frame(width: side, height: side)
             .contentShape(Rectangle())
+            .clickCursor()
     }
 }
 
@@ -678,6 +736,7 @@ private struct PillButtonStyle: ButtonStyle {
             .padding(.horizontal, 10)
             .frame(height: 25)
             .background(Capsule().fill(.white.opacity(configuration.isPressed ? 0.2 : 0.11)))
+            .clickCursor()
     }
 }
 

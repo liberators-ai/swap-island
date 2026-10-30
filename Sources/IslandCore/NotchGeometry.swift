@@ -64,8 +64,9 @@ public struct NotchGeometry: Sendable, Equatable {
         return CGRect(x: notchRect.midX - width / 2, y: screen.maxY - height, width: width, height: height)
     }
 
-    public func triggersOpen(at point: CGPoint) -> Bool {
-        closedRect.insetBy(dx: 0, dy: -1).contains(point)
+    /// With the wings hidden only the notch counts, so nothing invisible beside it reacts to the mouse.
+    public func triggersOpen(at point: CGPoint, wingsHidden: Bool = false) -> Bool {
+        (wingsHidden ? notchRect : closedRect).insetBy(dx: 0, dy: -1).contains(point)
     }
 
     /// `slack` lets a cursor drift past the edge without slamming the panel shut.

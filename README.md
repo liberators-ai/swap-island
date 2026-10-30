@@ -75,7 +75,7 @@ Bars turn amber at 70% and red at 90%. The white tick on a 7-day bar marks even 
 ## Known limits
 
 - The app has an ad-hoc signature and no notarization.
-- To stay out of the three-finger Space swipe animation, the app uses private macOS window APIs. For that reason it cannot ship on the App Store, and a macOS update can break it.
+- To stay out of the three-finger Space swipe animation and to change the cursor over its buttons while another app is frontmost, the app uses private macOS APIs. For that reason it cannot ship on the App Store, and a macOS update can break it.
 - While the panel is closed, each wing covers 28 points of the menu bar. If your status icons reach the notch, the right wing covers the first icon. In an app with very long menus, the left wing can cover the end of the last menu.
 - We tested the app on one MacBook with a notch, on macOS 26.5. Unit tests cover other notch sizes and screens without a notch, which get an island at the top center.
 - The updater checks a SHA-256 checksum from the same release, and the app has no Developer ID signature. So anyone who can publish a release in this repository can ship code to every copy that updates itself.

@@ -38,6 +38,7 @@ final class IslandController: NSObject {
     private var desiredOpen: Bool?
     /// Opened from the menu bar item, with the cursor elsewhere: leaving cannot close what was never entered.
     private var isPinned = false
+    private var ownsCursor = false
 
     init(store: IslandStore, updater: IslandUpdater) {
         self.store = store
@@ -45,12 +46,26 @@ final class IslandController: NSObject {
     }
 
     func start() {
+        allowCursorChangesInBackground()
         rebuildWindow()
         installMonitors()
         installStatusItem()
 
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .sink { [weak self] _ in MainActor.assumeIsolated { self?.rebuildWindow() } }
+            .store(in: &cancellables)
+
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.updateFullscreen()
+                    // Again once the swipe has settled, or a stale answer would last until the next swipe.
+                    Task { [weak self] in
+                        try? await Task.sleep(for: .seconds(1))
+                        self?.updateFullscreen()
+                    }
+                }
+            }
             .store(in: &cancellables)
 
         store.$accounts
@@ -102,6 +117,12 @@ final class IslandController: NSObject {
         panel.orderFrontRegardless()
         if existingPanel == nil { space.host(panel) }
         self.panel = panel
+        updateFullscreen()
+    }
+
+    private func updateFullscreen() {
+        guard let screen = Self.targetScreen() else { return }
+        store.isFullscreen = isShowingFullscreenSpace(on: screen)
     }
 
     /// The built-in display when it has a notch, otherwise wherever the menu bar lives.
@@ -159,7 +180,8 @@ final class IslandController: NSObject {
     /// Global monitors see the mouse over other apps; the local one sees it over this panel,
     /// which global monitors skip. Mouse monitors need no Accessibility permission.
     private func installMonitors() {
-        let moved: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
+        // Scrolling moves the rows under a still cursor, so it counts as a move too.
+        let moved: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .scrollWheel]
         let pressed: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown]
 
         addGlobal(moved) { $0.handleMouseMoved() }
@@ -198,14 +220,30 @@ final class IslandController: NSObject {
         guard let geometry, let panel else { return }
         updateMouseCapture(for: panel, geometry: geometry)
         let point = NSEvent.mouseLocation
+        updateHover(at: point, panel: panel, geometry: geometry)
         if store.isOpen {
             if geometry.isOverIsland(at: point, bodySize: bodySize) { isPinned = false }
             guard !isPinned else { return }
             let stays = geometry.isOverIsland(at: point, bodySize: bodySize, slack: Self.closeSlack)
             setDesired(open: stays, after: Self.closeDelay)
         } else {
-            setDesired(open: geometry.triggersOpen(at: point), after: Self.hoverDelay)
+            setDesired(open: geometry.triggersOpen(at: point, wingsHidden: store.isFullscreen), after: Self.hoverDelay)
         }
+    }
+
+    /// The cursor is set on every move over the panel, because the frontmost app can set its own between moves.
+    private func updateHover(at point: CGPoint, panel: NSPanel, geometry: NotchGeometry) {
+        var account: Int?
+        if store.isOpen, geometry.isOverOpenShape(at: point, bodySize: bodySize) {
+            let inWindow = CGPoint(x: point.x - panel.frame.minX, y: panel.frame.maxY - point.y)
+            (HoverAreas.isOverButton(inWindow) ? NSCursor.pointingHand : NSCursor.arrow).set()
+            ownsCursor = true
+            account = store.needsOnboarding ? nil : HoverAreas.account(at: inWindow)
+        } else if ownsCursor {
+            NSCursor.arrow.set()
+            ownsCursor = false
+        }
+        if store.hoveredAccount != account { store.hoveredAccount = account }
     }
 
     private func handleGlobalPress() {
@@ -216,7 +254,7 @@ final class IslandController: NSObject {
         guard !isOverStatusItem(point) else { return }
         if store.isOpen {
             if !geometry.isOverOpenShape(at: point, bodySize: bodySize) { transition(toOpen: false) }
-        } else if geometry.triggersOpen(at: point) {
+        } else if geometry.triggersOpen(at: point, wingsHidden: store.isFullscreen) {
             transition(toOpen: true)
         }
     }
@@ -252,6 +290,7 @@ final class IslandController: NSObject {
         if !open {
             isPinned = false
             store.isAdding = false
+            store.hoveredAccount = nil
         }
         if let panel, let geometry { updateMouseCapture(for: panel, geometry: geometry) }
         if open { Task { await store.refresh() } }

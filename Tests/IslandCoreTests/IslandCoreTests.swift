@@ -170,6 +170,14 @@ import Testing
         #expect(!notched.triggersOpen(at: CGPoint(x: 756, y: 900)))
     }
 
+    @Test func hiddenWingsDoNotReactToTheMouse() {
+        let inWing = CGPoint(x: notched.notchRect.maxX + 10, y: notched.screen.maxY - 12)
+        let inNotch = CGPoint(x: notched.notchRect.midX, y: notched.screen.maxY - 12)
+        #expect(notched.triggersOpen(at: inWing))
+        #expect(!notched.triggersOpen(at: inWing, wingsHidden: true))
+        #expect(notched.triggersOpen(at: inNotch, wingsHidden: true))
+    }
+
     @Test func aSmallDriftPastTheEdgeKeepsItOpen() {
         let edge = notched.panelRect(bodySize: bodySize)
         #expect(notched.isOverIsland(at: CGPoint(x: edge.maxX + 6, y: edge.midY), bodySize: bodySize, slack: 8))
