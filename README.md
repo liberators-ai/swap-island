@@ -68,6 +68,14 @@ To install updates only when you click the button, run this command:
 defaults write ai.liberators.swapisland autoUpdate -bool false
 ```
 
+Swap Island also checks PyPI for a new `cswap`, when it starts and every 6 hours. It shows **Update cswap** above the footer and never updates `cswap` by itself, because `cswap` holds your credentials. The button runs `cswap upgrade`.
+
+If the panel says `cswap` stayed at the old version, your install is pinned to that version. To remove the pin, run this command:
+
+```bash
+uv tool install claude-swap@latest
+```
+
 ## Read the bars
 
 Bars turn amber at 70% and red at 90%. The white tick on a 7-day bar marks even pace. A bar past the tick is using quota faster than the week allows.

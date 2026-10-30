@@ -14,16 +14,18 @@ public struct NotchGeometry: Sendable, Equatable {
     public let screen: CGRect
     public let notchRect: CGRect
 
-    /// `topInset` and the two auxiliary widths come from NSScreen. Everything centers on the notch
-    /// they describe, not on the screen, because the two widths can differ (665 and 662 on a 14-inch
-    /// MacBook Pro). A screen without a notch gets a virtual one so the island works the same there.
+    /// `topInset` and the two auxiliary widths come from NSScreen. The two widths can differ (665 and
+    /// 662 on a 14-inch MacBook Pro) while the hardware notch sits on the screen's center, so the
+    /// narrower one sets both edges and the neck leaves no step on either side.
+    /// A screen without a notch gets a virtual one so the island works the same there.
     public init(screen: CGRect, topInset: CGFloat, auxiliaryLeft: CGFloat?, auxiliaryRight: CGFloat?) {
         self.screen = screen
         if topInset > 0, let auxiliaryLeft, let auxiliaryRight {
+            let margin = min(auxiliaryLeft, auxiliaryRight)
             notchRect = CGRect(
-                x: screen.minX + auxiliaryLeft,
+                x: screen.minX + margin,
                 y: screen.maxY - topInset,
-                width: screen.width - auxiliaryLeft - auxiliaryRight,
+                width: screen.width - margin * 2,
                 height: topInset
             )
         } else {

@@ -74,6 +74,30 @@ import Testing
         #expect(result.switched)
     }
 
+    @Test func readsTheInstalledVersion() async throws {
+        let fake = try script(#"[ "$1" = "--version" ] && echo "cswap 0.29.0""#)
+        #expect(try await CswapClient(executable: fake).version() == ReleaseVersion("0.29.0"))
+    }
+
+    @Test func aPreReleaseIsNotOfferedAnUpdate() async throws {
+        let fake = try script(#"echo "cswap 0.29.0b1""#)
+        await #expect(throws: CswapError.failed("Unexpected answer from cswap.")) {
+            _ = try await CswapClient(executable: fake).version()
+        }
+    }
+
+    @Test func upgradeCanFindUvFromAMinimalPath() async throws {
+        let fake = try script(#"[ "$1" = "upgrade" ] && case ":$PATH:" in *:/opt/homebrew/bin:*) ;; *) exit 3 ;; esac"#)
+        try await CswapClient(executable: fake).upgrade()
+    }
+
+    @Test func upgradePathKeepsWhatWasInherited() {
+        #expect(CswapClient.upgradePath(inherited: "/usr/bin:/bin", home: "/Users/x")
+            == "/Users/x/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin")
+        #expect(CswapClient.upgradePath(inherited: nil, home: "/Users/x")
+            == "/Users/x/.local/bin:/opt/homebrew/bin:/usr/local/bin")
+    }
+
     @Test func answersTheRemovePromptItself() async throws {
         let fake = try script(#"read answer; [ "$1 $2 $answer" = "remove 6 y" ] || exit 3"#)
         try await CswapClient(executable: fake).remove(account: 6)
@@ -109,7 +133,8 @@ import Testing
     private let bodySize = CGSize(width: 360, height: 300)
 
     @Test func derivesTheNotchWidthFromTheAuxiliaryAreas() {
-        #expect(notched.notchSize == CGSize(width: 185, height: 32))
+        // The narrower margin on both sides, because the hardware notch sits on the screen's center.
+        #expect(notched.notchSize == CGSize(width: 188, height: 32))
     }
 
     @Test(arguments: [
@@ -122,8 +147,9 @@ import Testing
         screen: CGRect, inset: CGFloat, left: CGFloat, right: CGFloat
     ) {
         let geometry = NotchGeometry(screen: screen, topInset: inset, auxiliaryLeft: left, auxiliaryRight: right)
-        #expect(geometry.notchRect.minX == screen.minX + left)
-        #expect(geometry.notchRect.maxX == screen.maxX - right)
+        #expect(geometry.notchRect.minX == screen.minX + min(left, right))
+        #expect(geometry.notchRect.maxX == screen.maxX - min(left, right))
+        #expect(geometry.notchRect.midX == screen.midX)
         #expect(geometry.notchRect.maxY == screen.maxY)
         #expect(geometry.notchRect.height == inset)
         #expect(geometry.panelRect(bodySize: bodySize).midX == geometry.notchRect.midX)
@@ -206,6 +232,11 @@ import Testing
 }
 
 @Suite struct ReleaseVersionTests {
+    @Test func readsTheVersionFromPyPI() throws {
+        let json = #"{"info":{"name":"claude-swap","version":"0.29.0"},"releases":{}}"#
+        #expect(try JSONDecoder().decode(PyPIProject.self, from: Data(json.utf8)).info.version == "0.29.0")
+    }
+
     @Test func readsATagWithOrWithoutTheLeadingV() {
         #expect(ReleaseVersion("v0.1.2") == ReleaseVersion("0.1.2"))
         #expect(ReleaseVersion("0.1.2")?.description == "0.1.2")

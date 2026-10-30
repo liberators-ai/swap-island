@@ -204,11 +204,7 @@ private struct OpenPanel: View {
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.white.opacity(0.5))
         case .available(let version), .ready(let version):
-            Button("Update to \(version)") { updater.updateNow() }
-                .buttonStyle(.plain)
-                .clickCursor()
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color(level: .calm))
+            UpdatePill(store: store, title: "Update to \(version)") { updater.updateNow() }
                 .help("Swap Island also updates by itself when this panel closes")
         }
     }
@@ -253,6 +249,8 @@ private struct OpenPanel: View {
                 case .failure(let text):
                     Label(text, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Color(level: .hot))
                 }
+            } else {
+                cswapUpdateStatus
             }
         }
         .font(.system(size: 10.5, weight: .medium))
@@ -260,6 +258,28 @@ private struct OpenPanel: View {
         .truncationMode(.tail)
         .frame(height: IslandMetrics.noticeHeight)
         .animation(.easeOut(duration: 0.2), value: store.notice)
+    }
+
+    @ViewBuilder
+    private var cswapUpdateStatus: some View {
+        switch store.cswapUpdate {
+        case nil:
+            EmptyView()
+        case .available(let version):
+            HStack(spacing: 6) {
+                Text("cswap \(version) is available")
+                    .foregroundStyle(.white.opacity(0.6))
+                Spacer()
+                UpdatePill(store: store, title: "Update cswap") { store.updateCswap() }
+                    .disabled(store.isBusy)
+            }
+        case .installing(let version):
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.mini)
+                Text("Updating cswap to \(version)…")
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+        }
     }
 
     private var footer: some View {
@@ -677,8 +697,8 @@ enum HoverAreas {
         rows[account] = frame
     }
 
-    static func isOverButton(_ point: CGPoint) -> Bool {
-        buttons.values.contains { $0.contains(point) }
+    static func button(at point: CGPoint) -> UUID? {
+        buttons.first { $0.value.contains(point) }?.key
     }
 
     static func account(at point: CGPoint) -> Int? {
@@ -695,9 +715,13 @@ enum HoverAreas {
 }
 
 private struct ButtonHoverArea: ViewModifier {
+    /// Given by a button that also draws its own hover state, so it can match `hoveredButton`.
+    var sharedID: UUID?
     @Environment(\.isEnabled) private var isEnabled
-    @State private var id = UUID()
+    @State private var ownID = UUID()
     @State private var frame: CGRect?
+
+    private var id: UUID { sharedID ?? ownID }
 
     func body(content: Content) -> some View {
         content
@@ -709,7 +733,38 @@ private struct ButtonHoverArea: ViewModifier {
 
 private extension View {
     /// Goes inside any `.disabled`, so a disabled button keeps the arrow.
-    func clickCursor() -> some View { modifier(ButtonHoverArea()) }
+    func clickCursor(id: UUID? = nil) -> some View { modifier(ButtonHoverArea(sharedID: id)) }
+}
+
+/// Filled and reacting to the cursor, because an update is the one thing here waiting on the person.
+private struct UpdatePill: View {
+    @ObservedObject var store: IslandStore
+    let title: String
+    let action: () -> Void
+    @State private var id = UUID()
+
+    private var isHovered: Bool { store.hoveredButton == id }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Image(systemName: "arrow.down.circle.fill")
+                Text(title)
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.black)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .frame(height: 20)
+            .background(Capsule().fill(Color(level: .calm).opacity(isHovered ? 1 : 0.8)))
+            .scaleEffect(isHovered ? 1.06 : 1)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .clickCursor(id: id)
+    }
 }
 
 private struct IconButtonStyle: ButtonStyle {

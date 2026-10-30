@@ -39,6 +39,7 @@ final class IslandController: NSObject {
     /// Opened from the menu bar item, with the cursor elsewhere: leaving cannot close what was never entered.
     private var isPinned = false
     private var ownsCursor = false
+    private var cursorRefresh: Task<Void, Never>?
 
     init(store: IslandStore, updater: IslandUpdater) {
         self.store = store
@@ -234,16 +235,27 @@ final class IslandController: NSObject {
     /// The cursor is set on every move over the panel, because the frontmost app can set its own between moves.
     private func updateHover(at point: CGPoint, panel: NSPanel, geometry: NotchGeometry) {
         var account: Int?
+        var button: UUID?
         if store.isOpen, geometry.isOverOpenShape(at: point, bodySize: bodySize) {
             let inWindow = CGPoint(x: point.x - panel.frame.minX, y: panel.frame.maxY - point.y)
-            (HoverAreas.isOverButton(inWindow) ? NSCursor.pointingHand : NSCursor.arrow).set()
+            button = HoverAreas.button(at: inWindow)
+            let cursor = button != nil ? NSCursor.pointingHand : NSCursor.arrow
+            cursor.set()
+            // The frontmost app sees the same move and can set its own cursor just after this one.
+            cursorRefresh?.cancel()
+            cursorRefresh = Task {
+                try? await Task.sleep(for: .milliseconds(80))
+                if !Task.isCancelled { cursor.set() }
+            }
             ownsCursor = true
             account = store.needsOnboarding ? nil : HoverAreas.account(at: inWindow)
         } else if ownsCursor {
+            cursorRefresh?.cancel()
             NSCursor.arrow.set()
             ownsCursor = false
         }
         if store.hoveredAccount != account { store.hoveredAccount = account }
+        if store.hoveredButton != button { store.hoveredButton = button }
     }
 
     private func handleGlobalPress() {
@@ -291,6 +303,7 @@ final class IslandController: NSObject {
             isPinned = false
             store.isAdding = false
             store.hoveredAccount = nil
+            store.hoveredButton = nil
         }
         if let panel, let geometry { updateMouseCapture(for: panel, geometry: geometry) }
         if open { Task { await store.refresh() } }

@@ -10,6 +10,11 @@ final class IslandStore: ObservableObject {
         case failure(String)
     }
 
+    enum CswapUpdate: Equatable {
+        case available(String)
+        case installing(String)
+    }
+
     @Published private(set) var accounts: [Account] = []
     @Published private(set) var isLoading = false
     @Published private(set) var switchingTo: Int?
@@ -20,6 +25,8 @@ final class IslandStore: ObservableObject {
     @Published var isOpen = false
     @Published var isAdding = false
     @Published var hoveredAccount: Int?
+    @Published var hoveredButton: UUID?
+    @Published private(set) var cswapUpdate: CswapUpdate?
     /// The notch screen shows a fullscreen Space, so the wings stay out of a film's dark edge.
     @Published var isFullscreen = false
     /// First launch only. The accounts stay inactive until the person takes them in.
@@ -31,6 +38,9 @@ final class IslandStore: ObservableObject {
     private var client: CswapClient?
     private var refreshLoop: Task<Void, Never>?
     private var noticeDismissal: Task<Void, Never>?
+    private var cswapUpdateLoop: Task<Void, Never>?
+    /// An install pinned to one version stays there after `cswap upgrade`, so the offer stops repeating.
+    private var unreachableCswapVersion: ReleaseVersion?
 
     init(client: CswapClient?, hidesEmails: Bool = false) {
         self.client = client
@@ -48,6 +58,12 @@ final class IslandStore: ObservableObject {
             while !Task.isCancelled {
                 await self?.refresh()
                 try? await Task.sleep(for: .seconds(60))
+            }
+        }
+        cswapUpdateLoop = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.checkCswapUpdate()
+                try? await Task.sleep(for: .seconds(6 * 60 * 60))
             }
         }
     }
@@ -107,6 +123,41 @@ final class IslandStore: ObservableObject {
         perform({ self.isManaging = false }) { client in
             try await client.remove(account: account.number)
             self.show(.success("Account removed."))
+        }
+    }
+
+    /// Only offered, never automatic: cswap holds the credentials, so the person decides when it changes.
+    func updateCswap() {
+        guard case .available(let text) = cswapUpdate, let target = ReleaseVersion(text) else { return }
+        cswapUpdate = .installing(text)
+        isManaging = true
+        perform({
+            self.isManaging = false
+            if self.cswapUpdate == .installing(text) { self.cswapUpdate = .available(text) }
+        }) { client in
+            try await client.upgrade()
+            let installed = try await client.version()
+            self.cswapUpdate = nil
+            if installed >= target {
+                self.show(.success("cswap updated to \(installed)."))
+            } else {
+                self.unreachableCswapVersion = target
+                self.show(.failure("cswap stayed at \(installed). See Updates in the README."))
+            }
+        }
+    }
+
+    private func checkCswapUpdate() async {
+        guard let client, !isBusy else { return }
+        do {
+            async let installed = client.version()
+            async let latest = IslandUpdater.latestCswapVersion()
+            let (current, newest) = try await (installed, latest)
+            cswapUpdate = newest > current && newest != unreachableCswapVersion
+                ? .available(newest.description)
+                : nil
+        } catch {
+            NSLog("Swap Island: cswap update check failed: \(error.localizedDescription)")
         }
     }
 

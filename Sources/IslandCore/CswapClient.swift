@@ -63,6 +63,30 @@ public struct CswapClient: Sendable {
         _ = try await run(["remove", String(number)], input: "y\n")
     }
 
+    /// A pre-release such as 0.29.0b1 does not parse, so it never gets offered a final release.
+    public func version() async throws -> ReleaseVersion {
+        let output = String(decoding: try await run(["--version"]), as: UTF8.self)
+        guard let word = output.split(whereSeparator: \.isWhitespace).last,
+              let version = ReleaseVersion(String(word))
+        else { throw CswapError.failed("Unexpected answer from cswap.") }
+        return version
+    }
+
+    /// Exits 0 even when nothing changed, so a caller has to read `version()` afterwards.
+    public func upgrade() async throws {
+        let path = Self.upgradePath(
+            inherited: ProcessInfo.processInfo.environment["PATH"],
+            home: FileManager.default.homeDirectoryForCurrentUser.path
+        )
+        _ = try await run(["upgrade"], timeout: .seconds(180), path: path)
+    }
+
+    /// `cswap upgrade` calls uv or pipx by name, and a GUI app's minimal PATH has neither.
+    static func upgradePath(inherited: String?, home: String) -> String {
+        (["\(home)/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"] + [inherited].compactMap { $0 })
+            .joined(separator: ":")
+    }
+
     static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do {
             return try JSONDecoder().decode(T.self, from: data)
@@ -74,11 +98,12 @@ public struct CswapClient: Sendable {
     private func run(
         _ arguments: [String],
         input: String? = nil,
-        timeout: Duration = .seconds(45)
+        timeout: Duration = .seconds(45),
+        path: String? = nil
     ) async throws -> Data {
         let executable = executable
         return try await withThrowingTaskGroup(of: Data.self) { group in
-            group.addTask { try await Self.execute(executable, arguments, input: input) }
+            group.addTask { try await Self.execute(executable, arguments, input: input, path: path) }
             group.addTask {
                 try await Task.sleep(for: timeout)
                 throw CswapError.timedOut
@@ -89,12 +114,13 @@ public struct CswapClient: Sendable {
         }
     }
 
-    private static func execute(_ executable: URL, _ arguments: [String], input: String?) async throws -> Data {
+    private static func execute(_ executable: URL, _ arguments: [String], input: String?, path: String?) async throws -> Data {
         let process = Process()
         process.executableURL = executable
         process.arguments = arguments
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONIOENCODING"] = "utf-8"
+        if let path { environment["PATH"] = path }
         process.environment = environment
 
         let stdout = Pipe()

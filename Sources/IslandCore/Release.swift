@@ -38,6 +38,15 @@ public struct LatestRelease: Decodable, Sendable {
     }
 }
 
+/// The part of PyPI's project answer the cswap update check reads.
+public struct PyPIProject: Decodable, Sendable {
+    public let info: Info
+
+    public struct Info: Decodable, Sendable {
+        public let version: String
+    }
+}
+
 public enum ReleaseChecksum {
     /// The hex digest from a line of `shasum -a 256` output.
     public static func digest(in text: String) -> String? {

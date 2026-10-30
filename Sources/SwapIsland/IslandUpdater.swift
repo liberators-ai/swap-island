@@ -111,6 +111,15 @@ final class IslandUpdater: ObservableObject {
         return bundle
     }
 
+    nonisolated static func latestCswapVersion() async throws -> ReleaseVersion {
+        let url = URL(string: "https://pypi.org/pypi/claude-swap/json")!
+        let project = try JSONDecoder().decode(PyPIProject.self, from: try await fetch(url))
+        guard let version = ReleaseVersion(project.info.version) else {
+            throw UpdateError("Unreadable version \(project.info.version)")
+        }
+        return version
+    }
+
     private nonisolated static func latestVersion() async throws -> ReleaseVersion {
         let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!
         let release = try JSONDecoder().decode(LatestRelease.self, from: try await fetch(url))

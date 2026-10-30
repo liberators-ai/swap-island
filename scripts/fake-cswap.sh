@@ -36,5 +36,12 @@ JSON
     echo '{"schemaVersion":1,"switched":true,"from":1,"to":2,"reason":null}'
     ;;
   add|disable|enable|remove) cat > /dev/null; sleep 0.3 ;;
+  --version)
+    if [ -f "$STATE-upgraded" ]; then echo "cswap 99.0.0"; else echo "cswap 0.1.0"; fi
+    ;;
+  upgrade)
+    sleep 2
+    [ -n "${FAKE_CSWAP_PINNED:-}" ] || touch "$STATE-upgraded"
+    ;;
   *) echo '{"schemaVersion":1,"error":{"message":"unsupported"}}'; exit 1 ;;
 esac
