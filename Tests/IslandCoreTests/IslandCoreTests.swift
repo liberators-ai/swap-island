@@ -130,12 +130,20 @@ import Testing
         #expect(geometry.windowFrame(bodySize: bodySize, margin: 40).midX == geometry.notchRect.midX)
         let window = geometry.windowFrame(bodySize: bodySize, margin: 40)
         #expect(window.minX == window.minX.rounded())
-        #expect(geometry.closedRect.maxX == geometry.notchRect.maxX)
+        #expect(geometry.closedRect.midX == geometry.notchRect.midX)
         #expect(geometry.panelRect(bodySize: bodySize).maxY == geometry.notchRect.minY - NotchGeometry.shoulderDrop)
     }
 
-    @Test func theClosedIslandNeverReachesTheStatusIcons() {
-        #expect(notched.closedRect.maxX == notched.notchRect.maxX)
+    @Test func theClosedIslandExtendsEquallyOnBothSides() {
+        #expect(notched.notchRect.minX - notched.closedRect.minX == NotchGeometry.wingWidth)
+        #expect(notched.closedRect.maxX - notched.notchRect.maxX == NotchGeometry.wingWidth)
+        #expect(notched.closedRect.midX == notched.notchRect.midX)
+    }
+
+    @Test func aFoldedWingKeepsThePanelOpenButLeavesItsClicksToTheIcons() {
+        let inWing = CGPoint(x: notched.notchRect.maxX + 10, y: notched.screen.maxY - 12)
+        #expect(notched.isOverIsland(at: inWing, bodySize: bodySize))
+        #expect(!notched.isOverOpenShape(at: inWing, bodySize: bodySize))
     }
 
     @Test func theOpenPanelStaysBelowTheMenuBar() {

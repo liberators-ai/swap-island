@@ -133,10 +133,12 @@ final class IslandController: NSObject {
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
-            button.image = NSImage(
-                systemSymbolName: "arrow.left.arrow.right.circle",
-                accessibilityDescription: "Swap Island"
-            )
+            let image = Bundle.main.image(forResource: "MenuBarIcon")
+                ?? NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: nil)
+            image?.isTemplate = true
+            image?.size = NSSize(width: 18, height: 18)
+            image?.accessibilityDescription = "Swap Island"
+            button.image = image
             button.target = self
             button.action = #selector(statusItemClicked)
             button.toolTip = "Swap Island"
@@ -188,7 +190,7 @@ final class IslandController: NSObject {
     }
 
     private func updateMouseCapture(for panel: NSPanel, geometry: NotchGeometry) {
-        let isOver = geometry.isOverIsland(at: NSEvent.mouseLocation, bodySize: bodySize)
+        let isOver = geometry.isOverOpenShape(at: NSEvent.mouseLocation, bodySize: bodySize)
         panel.ignoresMouseEvents = !(store.isOpen && isOver)
     }
 
@@ -213,7 +215,7 @@ final class IslandController: NSObject {
         // so the panel would open and close at once, or close and reopen.
         guard !isOverStatusItem(point) else { return }
         if store.isOpen {
-            if !geometry.isOverIsland(at: point, bodySize: bodySize) { transition(toOpen: false) }
+            if !geometry.isOverOpenShape(at: point, bodySize: bodySize) { transition(toOpen: false) }
         } else if geometry.triggersOpen(at: point) {
             transition(toOpen: true)
         }

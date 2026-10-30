@@ -37,10 +37,12 @@ struct IslandView: View {
                 OpenPanel(store: store, updater: updater, notchSize: geometry.notchSize, bodySize: bodySize)
                     .transition(.scale(scale: 0.35, anchor: .top).combined(with: .opacity))
             }
-            // The wing folds away while open, so the neck is the notch's width and nothing pulls it off center.
-            let wing = store.isOpen ? 0 : NotchGeometry.wingWidth
-            ClosedIsland(account: store.active, notchSize: geometry.notchSize, wing: wing)
-                .offset(x: -wing / 2)
+            // The wings fold away while open, so the neck is the notch's width and covers no icon.
+            ClosedIsland(
+                account: store.active,
+                notchSize: geometry.notchSize,
+                wing: store.isOpen ? 0 : NotchGeometry.wingWidth
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
@@ -57,14 +59,19 @@ private struct ClosedIsland: View {
     let wing: CGFloat
 
     var body: some View {
-        ZStack(alignment: .leading) {
+        ZStack {
             IslandShape(topRadius: 6, bottomRadius: 9).fill(.black)
-            BadgeWithRing(account: account)
-                .frame(width: NotchGeometry.wingWidth - 6, height: notchSize.height)
-                .padding(.leading, 6)
-                .opacity(wing > 0 ? 1 : 0)
+            HStack(spacing: 0) {
+                BadgeWithRing(account: account)
+                    .frame(width: NotchGeometry.wingWidth - 6)
+                Spacer(minLength: 0)
+                WeekRing(account: account)
+                    .frame(width: NotchGeometry.wingWidth - 6)
+            }
+            .padding(.horizontal, 6)
+            .opacity(wing > 0 ? 1 : 0)
         }
-        .frame(width: notchSize.width + wing, height: notchSize.height)
+        .frame(width: notchSize.width + wing * 2, height: notchSize.height)
     }
 }
 
@@ -84,6 +91,27 @@ private struct BadgeWithRing: View {
             if let account {
                 AccountBadge(account: account, diameter: 12)
             }
+        }
+        .frame(width: 17, height: 17)
+    }
+}
+
+/// The right wing: the active account's 7-day usage, the same size as the badge on the left.
+private struct WeekRing: View {
+    let account: Account?
+
+    var body: some View {
+        let pct = account?.shownUsage?.sevenDay?.pct ?? 0
+        ZStack {
+            Circle().stroke(.white.opacity(0.18), lineWidth: 1.8)
+            Circle()
+                .trim(from: 0, to: min(pct, 100) / 100)
+                .stroke(Color(level: UsageLevel(pct: pct)), style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.easeOut(duration: 0.4), value: pct)
+            Text("7d")
+                .font(.system(size: 6.5, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.75))
         }
         .frame(width: 17, height: 17)
     }
@@ -131,8 +159,14 @@ private struct OpenPanel: View {
     }
 
     private var header: some View {
-        HStack {
-            Text("Claude accounts")
+        HStack(spacing: 6) {
+            if let logo = Bundle.main.image(forResource: "AppIcon") {
+                Image(nsImage: logo)
+                    .resizable()
+                    .frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
+            }
+            Text("Swap Island")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(.white)
             if let version = updater.currentVersion {

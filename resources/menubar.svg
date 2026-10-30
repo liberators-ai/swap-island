@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="18" height="18">
+  <!-- Template image: the app icon's panel in one color, with its two rows cut out. -->
+  <path fill="#000" fill-rule="evenodd" d="M12 1 V5 Q12 8 9 8 H7 Q2 8 2 13 V29 Q2 34 7 34 H29 Q34 34 34 29 V13 Q34 8 29 8 H27 Q24 8 24 5 V1 Z
+    M6.5 16 a3.5 3.5 0 1 0 7 0 a3.5 3.5 0 1 0 -7 0 Z
+    M18 13.75 H28 a2.25 2.25 0 0 1 0 4.5 H18 a2.25 2.25 0 0 1 0 -4.5 Z
+    M6.5 26 a3.5 3.5 0 1 0 7 0 a3.5 3.5 0 1 0 -7 0 Z
+    M18 23.75 H24 a2.25 2.25 0 0 1 0 4.5 H18 a2.25 2.25 0 0 1 0 -4.5 Z"/>
+</svg>

@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${VERSION:-0.1.3}"
+VERSION="${VERSION:-0.1.4}"
 BUILD_FLAGS=(-c release --arch arm64 --arch x86_64)
 
 swift build "${BUILD_FLAGS[@]}"
@@ -15,6 +15,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/SwapIsland"
 cp resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp resources/MenuBarIcon.pdf "$APP/Contents/Resources/MenuBarIcon.pdf"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

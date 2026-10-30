@@ -2,9 +2,9 @@ import CoreGraphics
 
 /// Screen-space rectangles for the island. Pure, so the hit-testing is testable without a window.
 ///
-/// Status icons live to the right of the notch, so the closed island adds a wing on the left only.
-/// The open panel hangs below the menu bar and joins the notch through a narrow neck, so opening
-/// it never covers a menu bar icon either.
+/// The closed island adds one equal wing on each side of the notch, so it stays centered. The open
+/// panel folds both wings away, hangs below the menu bar, and joins the notch through a neck of the
+/// notch's width, so opening it covers no menu bar icon.
 public struct NotchGeometry: Sendable, Equatable {
     public static let wingWidth: CGFloat = 28
     public static let fallbackSize = CGSize(width: 150, height: 28)
@@ -42,7 +42,7 @@ public struct NotchGeometry: Sendable, Equatable {
         CGRect(
             x: notchRect.minX - Self.wingWidth,
             y: notchRect.minY,
-            width: notchRect.width + Self.wingWidth,
+            width: notchRect.width + Self.wingWidth * 2,
             height: notchRect.height
         )
     }
@@ -70,15 +70,21 @@ public struct NotchGeometry: Sendable, Equatable {
 
     /// `slack` lets a cursor drift past the edge without slamming the panel shut.
     /// It stays below the shoulder drop's worth of menu bar, so reaching for an icon still closes it.
+    ///
+    /// The folded wings still count here, so a cursor that opened the panel from a wing does not close it again.
     public func isOverIsland(at point: CGPoint, bodySize: CGSize, slack: CGFloat = 0) -> Bool {
         let panel = panelRect(bodySize: bodySize)
-        let neck = CGRect(
-            x: closedRect.minX,
-            y: panel.maxY,
-            width: closedRect.width,
-            height: screen.maxY - panel.maxY
-        )
-        return neck.insetBy(dx: 0, dy: -1).contains(point)
+        return neck(spanning: closedRect, below: panel).insetBy(dx: 0, dy: -1).contains(point)
             || panel.insetBy(dx: -slack, dy: -slack).contains(point)
+    }
+
+    /// The part of the open island that is drawn. Icons beside the neck keep their clicks.
+    public func isOverOpenShape(at point: CGPoint, bodySize: CGSize) -> Bool {
+        let panel = panelRect(bodySize: bodySize)
+        return neck(spanning: notchRect, below: panel).contains(point) || panel.contains(point)
+    }
+
+    private func neck(spanning span: CGRect, below panel: CGRect) -> CGRect {
+        CGRect(x: span.minX, y: panel.maxY, width: span.width, height: screen.maxY - panel.maxY)
     }
 }

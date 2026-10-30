@@ -1,5 +1,5 @@
 #!/bin/bash
-# Regenerates resources/AppIcon.icns from resources/logo.svg.
+# Regenerates resources/AppIcon.icns from resources/logo.svg, and MenuBarIcon.pdf from menubar.svg.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -16,4 +16,5 @@ done
 
 iconutil -c icns "$ICONSET" -o resources/AppIcon.icns
 rm -rf "$WORK"
-echo "Wrote resources/AppIcon.icns"
+rsvg-convert -f pdf resources/menubar.svg -o resources/MenuBarIcon.pdf
+echo "Wrote resources/AppIcon.icns and resources/MenuBarIcon.pdf"

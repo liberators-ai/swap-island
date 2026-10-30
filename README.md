@@ -6,10 +6,10 @@ Switch Claude Code accounts from the MacBook notch. Move the pointer to the notc
   <img src="docs/open.png" width="440" alt="The open panel with four accounts, usage bars, and the addresses covered">
 </p>
 
-When the panel is closed, Swap Island adds one small wing to the left of the notch. The wing shows the badge of the active account inside a ring for its 5-hour usage. Nothing is added on the right, where your menu bar icons are. The open panel sits below the menu bar and centers on the notch, so it does not cover those icons either. The app reads the notch position from macOS, so the alignment follows each MacBook model and display scale.
+When the panel is closed, Swap Island adds one small wing on each side of the notch. The left wing shows the badge of the active account inside a ring for its 5-hour usage. The right wing shows a ring for its 7-day usage. The open panel folds both wings away and sits below the menu bar, so it covers no menu bar icons. The app reads the notch position from macOS, so the alignment follows each MacBook model and display scale.
 
 <p align="center">
-  <img src="docs/closed.png" width="240" alt="The closed island beside the notch">
+  <img src="docs/closed.png" width="240" alt="The closed island centered on the notch">
 </p>
 
 The screenshots use demo data, with the addresses covered.
@@ -76,7 +76,7 @@ Bars turn amber at 70% and red at 90%. The white tick on a 7-day bar marks even 
 
 - The app has an ad-hoc signature and no notarization.
 - To stay out of the three-finger Space swipe animation, the app uses private macOS window APIs. For that reason it cannot ship on the App Store, and a macOS update can break it.
-- In an app with very long menus, the wing can cover the end of the last menu.
+- While the panel is closed, each wing covers 28 points of the menu bar. If your status icons reach the notch, the right wing covers the first icon. In an app with very long menus, the left wing can cover the end of the last menu.
 - We tested the app on one MacBook with a notch, on macOS 26.5. Unit tests cover other notch sizes and screens without a notch, which get an island at the top center.
 - The updater checks a SHA-256 checksum from the same release, and the app has no Developer ID signature. So anyone who can publish a release in this repository can ship code to every copy that updates itself.
 
