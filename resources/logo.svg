@@ -1,56 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FBF7EF"/>
-      <stop offset="1" stop-color="#DDD5C5"/>
+      <stop offset="0" stop-color="#1F1F22"/>
+      <stop offset="1" stop-color="#0A0A0B"/>
     </linearGradient>
-    <linearGradient id="island" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#050506"/>
-      <stop offset="1" stop-color="#17171A"/>
-    </linearGradient>
-    <linearGradient id="mint" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#A4F2BE"/>
-      <stop offset="1" stop-color="#4FCB7C"/>
-    </linearGradient>
-    <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FBD48F"/>
-      <stop offset="1" stop-color="#EFA445"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.14"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.05"/>
-    </linearGradient>
-    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="20"/>
-      <feOffset dy="22"/>
-      <feComponentTransfer><feFuncA type="linear" slope="0.34"/></feComponentTransfer>
-      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <clipPath id="tileClip"><rect x="100" y="100" width="824" height="824" rx="186"/></clipPath>
   </defs>
-
   <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#tile)"/>
-
-  <!-- The open panel: a neck from the top edge, joined to the body by fillets. -->
-  <g clip-path="url(#tileClip)">
-    <path filter="url(#drop)" fill="url(#island)" d="M372 80 V252 Q372 296 328 296 H270 Q206 296 206 360 V758 Q206 822 270 822 H754 Q818 822 818 758 V360 Q818 296 754 296 H696 Q652 296 652 252 V80 Z"/>
-  </g>
-
-  <!-- The active account: highlighted row, usage ring, check. -->
-  <rect x="244" y="334" width="536" height="218" rx="50" fill="url(#sheen)"/>
-  <circle cx="346" cy="443" r="74" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="13"/>
-  <circle cx="346" cy="443" r="74" fill="none" stroke="#7FE3A2" stroke-width="13" stroke-linecap="round" stroke-dasharray="330 465" transform="rotate(-90 346 443)"/>
-  <circle cx="346" cy="443" r="52" fill="url(#mint)"/>
-  <path d="M321 444 L339 462 L372 426" fill="none" stroke="#08130C" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="456" y="404" width="284" height="26" rx="13" fill="#FFFFFF" fill-opacity="0.92"/>
-  <rect x="456" y="458" width="284" height="26" rx="13" fill="#FFFFFF" fill-opacity="0.16"/>
-  <rect x="456" y="458" width="178" height="26" rx="13" fill="url(#mint)"/>
-
-  <!-- The next account, one click away. -->
-  <circle cx="346" cy="674" r="74" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="13"/>
-  <circle cx="346" cy="674" r="74" fill="none" stroke="#F4B65C" stroke-width="13" stroke-linecap="round" stroke-dasharray="190 465" transform="rotate(-90 346 674)"/>
-  <circle cx="346" cy="674" r="52" fill="url(#amber)"/>
-  <rect x="456" y="635" width="222" height="26" rx="13" fill="#FFFFFF" fill-opacity="0.62"/>
-  <rect x="456" y="689" width="284" height="26" rx="13" fill="#FFFFFF" fill-opacity="0.16"/>
-  <rect x="456" y="689" width="108" height="26" rx="13" fill="url(#amber)"/>
+  <!-- Two accounts: the active one in front, the next one behind it. -->
+  <path d="M540.8 364.26 A164 164 0 1 1 540.8 659.74 A196 196 0 0 0 540.8 364.26 Z" fill="#7FE3A2"/>
+  <circle cx="412" cy="512" r="164" fill="#FAF8F3"/>
 </svg>
