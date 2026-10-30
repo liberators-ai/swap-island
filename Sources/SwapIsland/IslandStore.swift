@@ -19,6 +19,8 @@ final class IslandStore: ObservableObject {
     @Published private(set) var notice: Notice?
     @Published var isOpen = false
     @Published var isAdding = false
+    /// First launch only. The accounts stay inactive until the person takes them in.
+    @Published private(set) var needsOnboarding = !UserDefaults.standard.bool(forKey: IslandStore.onboardedKey)
 
     /// Covers every address with a solid bar, for screenshots that get published.
     let hidesEmails: Bool
@@ -34,6 +36,7 @@ final class IslandStore: ObservableObject {
 
     var active: Account? { accounts.first(where: \.active) }
     var isBusy: Bool { switchingTo != nil || isSwitchingBest || isManaging }
+    var showsExtraSection: Bool { isAdding || needsOnboarding }
 
     /// cswap paces its own usage API calls, so reading its cache often costs nothing upstream.
     func start() {
@@ -84,6 +87,7 @@ final class IslandStore: ObservableObject {
         perform({ self.isManaging = false }) { client in
             try await client.addCurrentLogin()
             self.isAdding = false
+            self.finishOnboarding()
             self.show(.success("Login saved."))
         }
     }
@@ -101,6 +105,11 @@ final class IslandStore: ObservableObject {
             try await client.remove(account: account.number)
             self.show(.success("Account removed."))
         }
+    }
+
+    func finishOnboarding() {
+        needsOnboarding = false
+        UserDefaults.standard.set(true, forKey: Self.onboardedKey)
     }
 
     /// Runs the login in Terminal, because it is an interactive browser flow.
@@ -130,6 +139,7 @@ final class IslandStore: ObservableObject {
     }
 
     static let installCommand = "uv tool install claude-swap"
+    private static let onboardedKey = "onboarded"
 
     private func perform(_ finish: @escaping () -> Void, _ work: @escaping (CswapClient) async throws -> Void) {
         guard let client else {

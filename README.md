@@ -6,7 +6,7 @@ Switch Claude Code accounts from the MacBook notch. Move the pointer to the notc
   <img src="docs/open.png" width="440" alt="The open panel with four accounts, usage bars, and the addresses covered">
 </p>
 
-When the panel is closed, Swap Island adds one small wing to the left of the notch. The wing shows the badge of the active account inside a ring for its 5-hour usage. Nothing is added on the right, where your menu bar icons are. The open panel sits below the menu bar, so it does not cover those icons either.
+When the panel is closed, Swap Island adds one small wing to the left of the notch. The wing shows the badge of the active account inside a ring for its 5-hour usage. Nothing is added on the right, where your menu bar icons are. The open panel sits below the menu bar and centers on the notch, so it does not cover those icons either. The app reads the notch position from macOS, so the alignment follows each MacBook model and display scale.
 
 <p align="center">
   <img src="docs/closed.png" width="240" alt="The closed island beside the notch">
@@ -36,6 +36,12 @@ If you installed from the DMG, install `cswap` yourself with `uv tool install cl
 
 ## Use it
 
+The first launch opens the panel and asks you to import your accounts. Accounts that are already in `cswap` appear in the list, and **Import** turns them on without copying anything. If `cswap` has no accounts, click **Import current login** to save the login that Claude Code uses now.
+
+<p align="center">
+  <img src="docs/onboarding.png" width="440" alt="The first launch, with four accounts found in cswap and an Import button">
+</p>
+
 To open the panel, move the pointer to the notch or click the Swap Island icon in the menu bar. The icon keeps the panel open until you click it again.
 
 | To do this | Do this |
@@ -50,6 +56,18 @@ To open the panel, move the pointer to the notch or click the Swap Island icon i
 
 Running Claude Code sessions pick up a switch in about 30 seconds.
 
+## Updates
+
+Swap Island checks the GitHub releases when it starts and every 6 hours. It downloads a new version, verifies its SHA-256 checksum, and replaces itself the next time the panel is closed. The panel header shows the installed version and an **Update to** button while an update waits.
+
+Only a copy in `/Applications` or `~/Applications` updates itself. Any other copy shows the button, and the button opens the release page.
+
+To install updates only when you click the button, run this command:
+
+```bash
+defaults write ai.liberators.swapisland autoUpdate -bool false
+```
+
 ## Read the bars
 
 Bars turn amber at 70% and red at 90%. The white tick on a 7-day bar marks even pace. A bar past the tick is using quota faster than the week allows.
@@ -59,7 +77,8 @@ Bars turn amber at 70% and red at 90%. The white tick on a 7-day bar marks even 
 - The app has an ad-hoc signature and no notarization.
 - To stay out of the three-finger Space swipe animation, the app uses private macOS window APIs. For that reason it cannot ship on the App Store, and a macOS update can break it.
 - In an app with very long menus, the wing can cover the end of the last menu.
-- We tested the app on one MacBook with a notch, on macOS 26.5. Screens without a notch get an island at the top center, and only unit tests cover that layout.
+- We tested the app on one MacBook with a notch, on macOS 26.5. Unit tests cover other notch sizes and screens without a notch, which get an island at the top center.
+- The updater checks a SHA-256 checksum from the same release, and the app has no Developer ID signature. So anyone who can publish a release in this repository can ship code to every copy that updates itself.
 
 Swap Island is not affiliated with Anthropic. You are responsible for following the Anthropic terms that apply to your accounts.
 

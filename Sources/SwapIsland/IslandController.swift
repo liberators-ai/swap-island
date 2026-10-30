@@ -26,6 +26,7 @@ final class IslandController: NSObject {
     private static let closeSlack: CGFloat = 8
 
     private let store: IslandStore
+    private let updater: IslandUpdater
     private let space = IslandSpace()
     private var panel: IslandPanel?
     private var statusItem: NSStatusItem?
@@ -38,8 +39,9 @@ final class IslandController: NSObject {
     /// Opened from the menu bar item, with the cursor elsewhere: leaving cannot close what was never entered.
     private var isPinned = false
 
-    init(store: IslandStore) {
+    init(store: IslandStore, updater: IslandUpdater) {
         self.store = store
+        self.updater = updater
     }
 
     func start() {
@@ -71,7 +73,7 @@ final class IslandController: NSObject {
     }
 
     private var bodySize: CGSize {
-        IslandMetrics.bodySize(accountCount: store.accounts.count, isAdding: store.isAdding)
+        IslandMetrics.bodySize(accountCount: store.accounts.count, isAdding: store.showsExtraSection)
     }
 
     private func rebuildWindowIfRowsChanged() {
@@ -95,7 +97,7 @@ final class IslandController: NSObject {
         let existingPanel = self.panel
         let panel = existingPanel ?? Self.makePanel()
         panel.setFrame(frame, display: true)
-        panel.contentView = FirstClickHostingView(rootView: IslandView(store: store, geometry: geometry))
+        panel.contentView = FirstClickHostingView(rootView: IslandView(store: store, updater: updater, geometry: geometry))
         updateMouseCapture(for: panel, geometry: geometry)
         panel.orderFrontRegardless()
         if existingPanel == nil { space.host(panel) }

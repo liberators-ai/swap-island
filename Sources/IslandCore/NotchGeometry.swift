@@ -12,31 +12,44 @@ public struct NotchGeometry: Sendable, Equatable {
     public static let shoulderDrop: CGFloat = 9
 
     public let screen: CGRect
-    public let notchSize: CGSize
+    public let notchRect: CGRect
 
-    /// `topInset` and the two auxiliary widths come from NSScreen. A screen without a notch gets
-    /// a virtual one so the island works the same on an external display.
+    /// `topInset` and the two auxiliary widths come from NSScreen. Everything centers on the notch
+    /// they describe, not on the screen, because the two widths can differ (665 and 662 on a 14-inch
+    /// MacBook Pro). A screen without a notch gets a virtual one so the island works the same there.
     public init(screen: CGRect, topInset: CGFloat, auxiliaryLeft: CGFloat?, auxiliaryRight: CGFloat?) {
         self.screen = screen
         if topInset > 0, let auxiliaryLeft, let auxiliaryRight {
-            notchSize = CGSize(width: screen.width - auxiliaryLeft - auxiliaryRight, height: topInset)
+            notchRect = CGRect(
+                x: screen.minX + auxiliaryLeft,
+                y: screen.maxY - topInset,
+                width: screen.width - auxiliaryLeft - auxiliaryRight,
+                height: topInset
+            )
         } else {
-            notchSize = Self.fallbackSize
+            notchRect = CGRect(
+                x: screen.midX - Self.fallbackSize.width / 2,
+                y: screen.maxY - Self.fallbackSize.height,
+                width: Self.fallbackSize.width,
+                height: Self.fallbackSize.height
+            )
         }
     }
 
+    public var notchSize: CGSize { notchRect.size }
+
     public var closedRect: CGRect {
         CGRect(
-            x: screen.midX - notchSize.width / 2 - Self.wingWidth,
-            y: screen.maxY - notchSize.height,
-            width: notchSize.width + Self.wingWidth,
-            height: notchSize.height
+            x: notchRect.minX - Self.wingWidth,
+            y: notchRect.minY,
+            width: notchRect.width + Self.wingWidth,
+            height: notchRect.height
         )
     }
 
     public func panelRect(bodySize: CGSize) -> CGRect {
         CGRect(
-            x: screen.midX - bodySize.width / 2,
+            x: notchRect.midX - bodySize.width / 2,
             y: screen.maxY - notchSize.height - Self.shoulderDrop - bodySize.height,
             width: bodySize.width,
             height: bodySize.height
@@ -45,8 +58,10 @@ public struct NotchGeometry: Sendable, Equatable {
 
     public func windowFrame(bodySize: CGSize, margin: CGFloat) -> CGRect {
         let height = notchSize.height + Self.shoulderDrop + bodySize.height + margin
-        let width = bodySize.width + margin * 2
-        return CGRect(x: screen.midX - width / 2, y: screen.maxY - height, width: width, height: height)
+        var width = bodySize.width + margin * 2
+        // AppKit snaps a window to whole points, which would shift an island centered on a half point.
+        if (notchRect.midX - width / 2).rounded() != notchRect.midX - width / 2 { width += 1 }
+        return CGRect(x: notchRect.midX - width / 2, y: screen.maxY - height, width: width, height: height)
     }
 
     public func triggersOpen(at point: CGPoint) -> Bool {

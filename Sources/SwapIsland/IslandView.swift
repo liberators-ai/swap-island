@@ -11,8 +11,6 @@ enum IslandMetrics {
     static let noticeHeight: CGFloat = 26
     static let footerHeight: CGFloat = 40
     static let maxVisibleRows = 5
-    /// How far the panel's frame starts above the notch's bottom edge, so the neck overlaps it.
-    static let neckOverlap: CGFloat = 10
 
     static func bodySize(accountCount: Int, isAdding: Bool) -> CGSize {
         let rows = max(1, min(accountCount, maxVisibleRows))
@@ -26,21 +24,23 @@ enum IslandMetrics {
 
 struct IslandView: View {
     @ObservedObject var store: IslandStore
+    @ObservedObject var updater: IslandUpdater
     let geometry: NotchGeometry
 
     private var bodySize: CGSize {
-        IslandMetrics.bodySize(accountCount: store.accounts.count, isAdding: store.isAdding)
+        IslandMetrics.bodySize(accountCount: store.accounts.count, isAdding: store.showsExtraSection)
     }
 
     var body: some View {
         ZStack(alignment: .top) {
             if store.isOpen {
-                OpenPanel(store: store, notchSize: geometry.notchSize, bodySize: bodySize)
-                    .padding(.top, geometry.notchSize.height - IslandMetrics.neckOverlap)
+                OpenPanel(store: store, updater: updater, notchSize: geometry.notchSize, bodySize: bodySize)
                     .transition(.scale(scale: 0.35, anchor: .top).combined(with: .opacity))
             }
-            ClosedIsland(account: store.active, size: geometry.closedRect.size)
-                .offset(x: -NotchGeometry.wingWidth / 2)
+            // The wing folds away while open, so the neck is the notch's width and nothing pulls it off center.
+            let wing = store.isOpen ? 0 : NotchGeometry.wingWidth
+            ClosedIsland(account: store.active, notchSize: geometry.notchSize, wing: wing)
+                .offset(x: -wing / 2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
@@ -53,16 +53,18 @@ struct IslandView: View {
 
 private struct ClosedIsland: View {
     let account: Account?
-    let size: CGSize
+    let notchSize: CGSize
+    let wing: CGFloat
 
     var body: some View {
         ZStack(alignment: .leading) {
             IslandShape(topRadius: 6, bottomRadius: 9).fill(.black)
             BadgeWithRing(account: account)
-                .frame(width: NotchGeometry.wingWidth - 6, height: size.height)
+                .frame(width: NotchGeometry.wingWidth - 6, height: notchSize.height)
                 .padding(.leading, 6)
+                .opacity(wing > 0 ? 1 : 0)
         }
-        .frame(width: size.width, height: size.height)
+        .frame(width: notchSize.width + wing, height: notchSize.height)
     }
 }
 
@@ -91,18 +93,22 @@ private struct BadgeWithRing: View {
 
 private struct OpenPanel: View {
     @ObservedObject var store: IslandStore
+    @ObservedObject var updater: IslandUpdater
     let notchSize: CGSize
     let bodySize: CGSize
 
-    /// From the top of this view's frame down to the panel's top edge.
-    private var shoulderY: CGFloat { IslandMetrics.neckOverlap + NotchGeometry.shoulderDrop }
+    /// From the top of the screen down to the panel's top edge.
+    private var shoulderY: CGFloat { notchSize.height + NotchGeometry.shoulderDrop }
 
     var body: some View {
         let center = bodySize.width / 2
         VStack(spacing: 0) {
             header
             accountList
-            if store.isAdding {
+            if store.needsOnboarding && !store.cswapMissing {
+                OnboardingSection(store: store)
+                    .transition(.opacity)
+            } else if store.isAdding {
                 AddAccountSection(store: store)
                     .transition(.opacity)
             }
@@ -114,8 +120,8 @@ private struct OpenPanel: View {
         .frame(width: bodySize.width, height: bodySize.height + shoulderY, alignment: .top)
         .background(
             PanelShape(
-                neckLeft: center - notchSize.width / 2 - NotchGeometry.wingWidth + 6,
-                neckRight: center + notchSize.width / 2 - 6,
+                neckLeft: center - notchSize.width / 2,
+                neckRight: center + notchSize.width / 2,
                 shoulderY: shoulderY,
                 fillet: NotchGeometry.shoulderDrop
             )
@@ -129,7 +135,13 @@ private struct OpenPanel: View {
             Text("Claude accounts")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(.white)
+            if let version = updater.currentVersion {
+                Text(version)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.35))
+            }
             Spacer()
+            updateStatus
             Button {
                 Task { await store.refresh() }
             } label: {
@@ -149,12 +161,30 @@ private struct OpenPanel: View {
     }
 
     @ViewBuilder
+    private var updateStatus: some View {
+        switch updater.phase {
+        case .idle:
+            EmptyView()
+        case .downloading(let version):
+            Text("Downloading \(version)…")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.5))
+        case .available(let version), .ready(let version):
+            Button("Update to \(version)") { updater.updateNow() }
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color(level: .calm))
+                .help("Swap Island also updates by itself when this panel closes")
+        }
+    }
+
+    @ViewBuilder
     private var accountList: some View {
         if store.cswapMissing {
             MissingCswapView(store: store)
                 .frame(height: IslandMetrics.rowHeight)
         } else if store.accounts.isEmpty {
-            Text(store.isLoading ? "Reading accounts…" : "No accounts yet. Press Add account below.")
+            Text(emptyListMessage)
                 .font(.system(size: 12))
                 .foregroundStyle(.white.opacity(0.55))
                 .frame(maxWidth: .infinity, minHeight: IslandMetrics.rowHeight)
@@ -167,7 +197,14 @@ private struct OpenPanel: View {
                 }
             }
             .frame(height: CGFloat(min(store.accounts.count, IslandMetrics.maxVisibleRows)) * IslandMetrics.rowHeight)
+            .disabled(store.needsOnboarding)
+            .opacity(store.needsOnboarding ? 0.45 : 1)
         }
+    }
+
+    private var emptyListMessage: String {
+        if store.isLoading { return "Reading accounts…" }
+        return store.needsOnboarding ? "No saved accounts yet." : "No accounts yet. Press Add account below."
     }
 
     /// Always takes its height, so a message appearing never shifts the rows under the cursor.
@@ -205,7 +242,7 @@ private struct OpenPanel: View {
                 }
             }
             .buttonStyle(PillButtonStyle())
-            .disabled(store.isBusy || store.cswapMissing)
+            .disabled(store.isBusy || store.cswapMissing || store.needsOnboarding)
             .help("Switch to the account with the most quota left")
 
             Button {
@@ -217,7 +254,7 @@ private struct OpenPanel: View {
                 }
             }
             .buttonStyle(PillButtonStyle())
-            .disabled(store.cswapMissing)
+            .disabled(store.cswapMissing || store.needsOnboarding)
 
             Spacer()
             FooterControls()
@@ -264,6 +301,36 @@ private struct FooterControls: View {
             NSLog("Swap Island: login item change failed: \(error.localizedDescription)")
         }
         launchesAtLogin = SMAppService.mainApp.status == .enabled
+    }
+}
+
+/// Accounts already in cswap are the same accounts here, so importing them copies nothing:
+/// it only turns the rows on. With none saved, the import is the login Claude Code has now.
+private struct OnboardingSection: View {
+    @ObservedObject var store: IslandStore
+
+    var body: some View {
+        let count = store.accounts.count
+        VStack(alignment: .leading, spacing: 7) {
+            if store.accounts.isEmpty {
+                Text("Import the login Claude Code uses now, or log in first.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.white.opacity(0.75))
+                HStack(spacing: 6) {
+                    Button("Import current login") { store.addCurrentLogin() }
+                        .disabled(store.isBusy || store.isLoading)
+                    Button("Log in") { store.openLoginInTerminal() }
+                }
+                .buttonStyle(PillButtonStyle())
+            } else {
+                Text("Found \(count) \(count == 1 ? "account" : "accounts") in cswap. Nothing gets copied.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.white.opacity(0.75))
+                Button("Import \(count) \(count == 1 ? "account" : "accounts")") { store.finishOnboarding() }
+                    .buttonStyle(PillButtonStyle())
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: IslandMetrics.addSectionHeight, alignment: .leading)
     }
 }
 

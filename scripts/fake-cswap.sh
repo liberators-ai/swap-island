@@ -16,6 +16,10 @@ JSON
 
 case "$1" in
   list)
+    if [ -n "${FAKE_CSWAP_EMPTY:-}" ]; then
+      echo '{"schemaVersion":1,"activeAccountNumber":null,"accounts":[]}'
+      exit 0
+    fi
     cat <<JSON
 {"schemaVersion":1,"activeAccountNumber":$ACTIVE,"accounts":[
 $(row 2 "personal@example.com" 14 62 41.2),

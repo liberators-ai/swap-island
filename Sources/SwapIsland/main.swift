@@ -5,6 +5,7 @@ import IslandCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: IslandStore?
     private var controller: IslandController?
+    private var updater: IslandUpdater?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let environment = ProcessInfo.processInfo.environment
@@ -12,13 +13,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             client: CswapClient.locate(),
             hidesEmails: environment["SWAP_ISLAND_HIDE_EMAILS"] != nil
         )
-        let controller = IslandController(store: store)
+        let updater = IslandUpdater(demoVersion: environment["SWAP_ISLAND_DEMO_UPDATE"])
+        let controller = IslandController(store: store, updater: updater)
         self.store = store
         self.controller = controller
+        self.updater = updater
         controller.start()
         store.start()
-        // Lets a screenshot catch the open state without moving the mouse.
-        if environment["SWAP_ISLAND_START_OPEN"] != nil {
+        updater.start(isIdle: { !store.isOpen && !store.isBusy })
+        // The first launch shows the import step. The variable lets a screenshot catch the open
+        // state without moving the mouse.
+        if store.needsOnboarding || environment["SWAP_ISLAND_START_OPEN"] != nil {
             controller.openPinned()
         }
     }

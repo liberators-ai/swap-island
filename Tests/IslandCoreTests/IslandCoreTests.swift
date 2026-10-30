@@ -112,9 +112,30 @@ import Testing
         #expect(notched.notchSize == CGSize(width: 185, height: 32))
     }
 
+    @Test(arguments: [
+        (CGRect(x: 0, y: 0, width: 1512, height: 982), CGFloat(32), CGFloat(665), CGFloat(662)),
+        (CGRect(x: 0, y: 0, width: 1728, height: 1117), 37, 770, 770),
+        (CGRect(x: 0, y: 0, width: 1470, height: 956), 37, 650, 640),
+        (CGRect(x: -1920, y: 300, width: 1512, height: 982), 32, 665, 662),
+    ])
+    func everyNotchGetsACenteredPanelAndAFlushIsland(
+        screen: CGRect, inset: CGFloat, left: CGFloat, right: CGFloat
+    ) {
+        let geometry = NotchGeometry(screen: screen, topInset: inset, auxiliaryLeft: left, auxiliaryRight: right)
+        #expect(geometry.notchRect.minX == screen.minX + left)
+        #expect(geometry.notchRect.maxX == screen.maxX - right)
+        #expect(geometry.notchRect.maxY == screen.maxY)
+        #expect(geometry.notchRect.height == inset)
+        #expect(geometry.panelRect(bodySize: bodySize).midX == geometry.notchRect.midX)
+        #expect(geometry.windowFrame(bodySize: bodySize, margin: 40).midX == geometry.notchRect.midX)
+        let window = geometry.windowFrame(bodySize: bodySize, margin: 40)
+        #expect(window.minX == window.minX.rounded())
+        #expect(geometry.closedRect.maxX == geometry.notchRect.maxX)
+        #expect(geometry.panelRect(bodySize: bodySize).maxY == geometry.notchRect.minY - NotchGeometry.shoulderDrop)
+    }
+
     @Test func theClosedIslandNeverReachesTheStatusIcons() {
-        let notchRightEdge = notched.screen.midX + notched.notchSize.width / 2
-        #expect(notched.closedRect.maxX == notchRightEdge)
+        #expect(notched.closedRect.maxX == notched.notchRect.maxX)
     }
 
     @Test func theOpenPanelStaysBelowTheMenuBar() {
@@ -123,8 +144,7 @@ import Testing
     }
 
     @Test func aMenuBarIconBesideTheNeckIsNotPartOfTheIsland() {
-        let notchRightEdge = notched.screen.midX + notched.notchSize.width / 2
-        let icon = CGPoint(x: notchRightEdge + 30, y: notched.screen.maxY - 12)
+        let icon = CGPoint(x: notched.notchRect.maxX + 30, y: notched.screen.maxY - 12)
         #expect(!notched.isOverIsland(at: icon, bodySize: bodySize, slack: 8))
     }
 
@@ -166,5 +186,36 @@ import Testing
         #expect(UsageLevel(pct: 69.9) == .calm)
         #expect(UsageLevel(pct: 70) == .warm)
         #expect(UsageLevel(pct: 90) == .hot)
+    }
+}
+
+@Suite struct ReleaseVersionTests {
+    @Test func readsATagWithOrWithoutTheLeadingV() {
+        #expect(ReleaseVersion("v0.1.2") == ReleaseVersion("0.1.2"))
+        #expect(ReleaseVersion("0.1.2")?.description == "0.1.2")
+    }
+
+    @Test func comparesNumbersNotText() throws {
+        #expect(try #require(ReleaseVersion("0.1.10")) > #require(ReleaseVersion("0.1.9")))
+        #expect(try #require(ReleaseVersion("1.0")) > #require(ReleaseVersion("0.9.9")))
+        #expect(ReleaseVersion("1.0") == ReleaseVersion("1.0.0"))
+    }
+
+    @Test func rejectsATagThatIsNotAVersion() {
+        #expect(ReleaseVersion("nightly") == nil)
+        #expect(ReleaseVersion("") == nil)
+        #expect(ReleaseVersion("v1.x") == nil)
+    }
+
+    @Test func readsTheDigestFromAShasumFile() {
+        let digest = String(repeating: "a", count: 64)
+        #expect(ReleaseChecksum.digest(in: "\(digest)  Swap-Island.zip\n") == digest)
+        #expect(ReleaseChecksum.digest(in: "Not Found") == nil)
+    }
+
+    @Test func decodesTheLatestReleaseAnswer() throws {
+        let json = #"{"tag_name":"v0.1.3","name":"Swap Island 0.1.3","draft":false}"#
+        let release = try JSONDecoder().decode(LatestRelease.self, from: Data(json.utf8))
+        #expect(release.tagName == "v0.1.3")
     }
 }
