@@ -122,6 +122,34 @@ import Testing
             _ = try await client.list()
         }
     }
+
+    // The refresh loop waits on each call, so a call that never returns freezes the panel.
+    @Test func givesUpOnAChildThatNeverAnswers() async throws {
+        let fake = try script("exec sleep 30")
+        let start = ContinuousClock.now
+        await #expect(throws: CswapError.timedOut) {
+            _ = try await CswapClient(executable: fake, timeout: .seconds(1)).list()
+        }
+        #expect(ContinuousClock.now - start < .seconds(5))
+    }
+
+    @Test func readsTheAnswerWhileAGrandchildHoldsThePipe() async throws {
+        let fake = try script(#"sleep 8 & echo "cswap 0.29.0""#)
+        let start = ContinuousClock.now
+        #expect(try await CswapClient(executable: fake).version() == ReleaseVersion("0.29.0"))
+        // Under the 8 seconds the grandchild keeps the pipe open; tests launch in parallel, so not much under.
+        #expect(ContinuousClock.now - start < .seconds(7))
+    }
+
+    @Test func stopsWaitingWhenCancelled() async throws {
+        let fake = try script("exec sleep 30")
+        let start = ContinuousClock.now
+        let call = Task { try await CswapClient(executable: fake).list() }
+        try await Task.sleep(for: .milliseconds(300))
+        call.cancel()
+        await #expect(throws: CancellationError.self) { _ = try await call.value }
+        #expect(ContinuousClock.now - start < .seconds(5))
+    }
 }
 
 @Suite struct GeometryTests {
