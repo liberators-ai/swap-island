@@ -43,6 +43,8 @@ struct IslandView: View {
                 notchSize: geometry.notchSize,
                 wing: store.isOpen || store.isFullscreen ? 0 : NotchGeometry.wingWidth
             )
+            // The menu bar item still opens it on purpose.
+            .opacity(!store.isOpen && store.hidesClosedIsland ? 0 : 1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
@@ -617,9 +619,14 @@ private struct UsageMeter: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 4) {
                 Text(label).foregroundStyle(.white.opacity(0.5))
-                Text("\(Int(pct.rounded()))%")
-                    .monospacedDigit()
-                    .foregroundStyle(Color(level: UsageLevel(pct: pct)))
+                if window == nil {
+                    // Anthropic reports no such window for this account, so a 0% would be a made-up reading.
+                    Text("none").foregroundStyle(.white.opacity(0.4))
+                } else {
+                    Text("\(Int(pct.rounded()))%")
+                        .monospacedDigit()
+                        .foregroundStyle(Color(level: UsageLevel(pct: pct)))
+                }
                 Spacer(minLength: 0)
                 if let countdown = window?.countdown {
                     Text(countdown).foregroundStyle(.white.opacity(0.4)).monospacedDigit()

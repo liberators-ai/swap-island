@@ -29,6 +29,8 @@ final class IslandStore: ObservableObject {
     @Published private(set) var cswapUpdate: CswapUpdate?
     /// The notch screen shows a fullscreen Space, so the wings stay out of a film's dark edge.
     @Published var isFullscreen = false
+    /// The notch screen is copied to another display, such as a TV, which has no notch to hide the island in.
+    @Published var isMirrored = false
     /// First launch only. The accounts stay inactive until the person takes them in.
     @Published private(set) var needsOnboarding = !UserDefaults.standard.bool(forKey: IslandStore.onboardedKey)
 
@@ -50,6 +52,8 @@ final class IslandStore: ObservableObject {
     var active: Account? { accounts.first(where: \.active) }
     var isBusy: Bool { switchingTo != nil || isSwitchingBest || isManaging }
     var showsExtraSection: Bool { isAdding || needsOnboarding }
+    /// A film mirrored to a TV would show the black notch shape over the picture.
+    var hidesClosedIsland: Bool { isFullscreen && isMirrored }
 
     /// cswap paces its own usage API calls, so reading its cache often costs nothing upstream.
     func start() {

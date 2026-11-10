@@ -124,6 +124,7 @@ final class IslandController: NSObject {
     private func updateFullscreen() {
         guard let screen = Self.targetScreen() else { return }
         store.isFullscreen = isShowingFullscreenSpace(on: screen)
+        store.isMirrored = isMirrored(screen)
     }
 
     /// The built-in display when it has a notch, otherwise wherever the menu bar lives.
@@ -228,7 +229,9 @@ final class IslandController: NSObject {
             let stays = geometry.isOverIsland(at: point, bodySize: bodySize, slack: Self.closeSlack)
             setDesired(open: stays, after: Self.closeDelay)
         } else {
-            setDesired(open: geometry.triggersOpen(at: point, wingsHidden: store.isFullscreen), after: Self.hoverDelay)
+            // A hidden island must not appear on the TV because the cursor passed the top edge.
+            let opens = !store.hidesClosedIsland && geometry.triggersOpen(at: point, wingsHidden: store.isFullscreen)
+            setDesired(open: opens, after: Self.hoverDelay)
         }
     }
 
@@ -266,7 +269,7 @@ final class IslandController: NSObject {
         guard !isOverStatusItem(point) else { return }
         if store.isOpen {
             if !geometry.isOverOpenShape(at: point, bodySize: bodySize) { transition(toOpen: false) }
-        } else if geometry.triggersOpen(at: point, wingsHidden: store.isFullscreen) {
+        } else if !store.hidesClosedIsland, geometry.triggersOpen(at: point, wingsHidden: store.isFullscreen) {
             transition(toOpen: true)
         }
     }

@@ -55,6 +55,14 @@ func isShowingFullscreenSpace(on screen: NSScreen) -> Bool {
     return current?["type"] as? Int == fullscreenSpaceType
 }
 
+/// True for both sides of a mirror: the screen being copied and the display showing the copy.
+func isMirrored(_ screen: NSScreen) -> Bool {
+    guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else {
+        return false
+    }
+    return CGDisplayIsInMirrorSet(number) != 0
+}
+
 @_silgen_name("_CGSDefaultConnection")
 private func _CGSDefaultConnection() -> Int32
 @_silgen_name("CGSCopyManagedDisplaySpaces")

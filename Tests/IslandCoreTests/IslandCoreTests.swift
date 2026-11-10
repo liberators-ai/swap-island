@@ -24,6 +24,16 @@ import Testing
         #expect(list.accounts[1].isDisabled)
     }
 
+    @Test func aWindowAnthropicDoesNotReportStaysMissingRatherThanZero() throws {
+        let json = #"""
+        {"accounts":[{"number":2,"email":"a@example.com","active":true,"usageStatus":"ok",
+          "usage":{"sevenDay":{"pct":22.0,"countdown":"6d 9h"},"spend":{"used":52.15,"limit":158.36,"pct":32.9,"currency":"EUR"}}}]}
+        """#
+        let account = try CswapClient.decode(AccountList.self, from: Data(json.utf8)).accounts[0]
+        #expect(account.shownUsage?.fiveHour == nil)
+        #expect(account.shownUsage?.sevenDay?.pct == 22)
+    }
+
     @Test func fallsBackToLastKnownUsageAndMarksItStale() throws {
         let json = #"""
         {"accounts":[{"number":1,"email":"a@example.com","active":false,"usageStatus":"token_expired",
